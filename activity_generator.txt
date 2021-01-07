@@ -1,0 +1,12 @@
+home2work_road
+P_h2w(t) ~ N(9, 2)
+
+work2home_road
+P_w2h(t) ~ N(18, 2)
+
+generate schedule:
+sample(P_h2w) 
+
+sports 
+N(8,2) * 0.4
+N(19,3) * 0.6
