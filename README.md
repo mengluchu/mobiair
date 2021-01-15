@@ -1,7 +1,7 @@
 # Mobi-Air project
 
-- reference: 
+- Literature: 
 relevant literatures
 
-- cohort info:
-cohort info
+- scripts:
+Python scripts are the newest development. Currently can only run on our server due to the routing query from OSM.
