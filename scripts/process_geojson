@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Jan 19 11:10:43 2021
+
+@author: menglu
+"""
+
+import geopandas as gpd
+import json
+from osgeo import ogr, osr
+gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/aamyfile.geojson')
+f = open('/Users/menglu/Documents/GitHub/mobiair/aamyfile.geojson')
+data = json.load(f)
+
+import gdal
+ds = gdal.OpenEx(data)
+layer = ds.GetLayer()
+featureCount = layer.GetFeatureCount()
+ 
+feature = layer.GetNextFeature()
+#feature.GetGeometryRef().ExportToWkb()
+ 
+print(ds.GetDriver().ShortName)
+print(feature.GetGeometryRef().ExportToWkt())
+
+####
+
+mem_ds = ogr.GetDriverByName('MEMORY').CreateDataSource('')
+dst_layer = mem_ds.CreateLayer('route', geom_type=ogr.wkbLineString)
+
+dst_layer
+
+
+wgs_layer.ResetReading()
+wgs_feature = wgs_layer.GetNextFeature()
+
+wgs_feature
+wgs_geometry = wgs_feature.GetGeometryRef()
+wgs_geometry   
+dst_geometry = ogr.CreateGeometryFromWkb(wgs_geometry.ExportToWkb())
+feature = ogr.Feature(dst_layer.GetLayerDefn())
+feature.SetGeometry(dst_geometry)
+dst_layer.CreateFeature(feature)
+feature = None
+dst_layer = mem_ds.GetLayer()
+
+source_feature = dst_layer.GetNextFeature()
+source_feature
+
+env = source_feature.GetGeometryRef().GetEnvelope()
+env[1]
+
+target_ds = gdal.GetDriverByName('MEM').Create('', xsize=route_nr_cols, ysize=route_nr_rows, bands=1, eType=gdal.GDT_Byte)
+    target_ds.SetGeoTransform((route_min_x, self.cellsize, 0, route_max_y, 0, -self.cellsize))
+
+
+

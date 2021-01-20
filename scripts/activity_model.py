@@ -8,6 +8,7 @@ Created on Fri Jan 15 14:21:18 2021
 from mobiair import Routing
 import pandas as pd 
 import numpy as np
+from geojson import dump
 #import random
 filedir = "/data/lu01/"
 home_csv = filedir+"Uhomelatlon.csv"
@@ -18,6 +19,57 @@ nr_locations = homedf.shape[0]
         
 r = Routing(server='127.0.0.1', port_car=5001, port_bicycle=5002, port_foot=5003)
 
+def travelmean_from_distance2work (dis, param = None):
+    tra_mode = ['car','bicycle','foot']
+    if param is None:
+        if dis <1000:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.001, 0.1, 0.899] )[0]
+        elif dis <6000:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.05, 0.9, 0.05] )[0]
+        elif dis <10000:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.8, 0.2, 0.000] )[0]
+        else:
+          cls_ = np.random.choice(tra_mode, 1, p = [1, 0, 0] )[0]
+          
+    elif param == "NL" : #parameterise from the Ovin2014 dataset
+        if dis <1000:
+         cls_ = np.random.choice(tra_mode, 1, p = [0.14, 0.53, 0.33] )[0]
+        elif dis <2500:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.2, 0.6, 0.2] )[0]
+        elif dis <3700:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.3, 0.65, 0.05] )[0]
+        elif dis < 5000:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.4, 0.55, 0.05] )[0]
+        elif dis <7500:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.6, 0.4, 0.00] )[0]
+        elif dis <10000:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.7, 0.3, 0.00] )[0]
+        elif dis <15000:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.9, 0.1, 0] )[0]
+        else:
+          cls_ = np.random.choice(tra_mode, 1, p = [1, 0, 0] )[0] #the travel by by train needed at 0.1
+ 
+    elif param == "NL_student": #parameterise from the Ovin2014 dataset for school child and student, they cycle more and take more public transport        
+        if dis <1000:
+         cls_ = np.random.choice(tra_mode, 1, p = [0, 0.5, 0.5] )[0]
+        elif dis <2500:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.1, 0.7, 0.2] )[0]
+        elif dis <3700:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.3, 0.7, 0.0] )[0]
+        elif dis < 5000:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.35, 0.65, 0.0] )[0] # start bus 0,1 bestuurder auto0.1
+        elif dis <7500:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.45, 0.55, 0.0] )[0]
+        elif dis <10000:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.6, 0.4, 0.0] )[0] # auto include metro 0.1 , bus 0,1
+        elif dis <15000:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.6, 0.4, 0] )[0] # also include train 
+        elif dis < 30000:
+          cls_ = np.random.choice(tra_mode, 1, p = [0.9, 0.1, 0] )[0] #electronic or brombike
+        else:
+          cls_ = np.random.choice(tra_mode, 1, p = [1, 0, 0] )[0] #the travel by by train needed at 0.7
+ 
+    return cls_
         
 #for i in range(1, nr_locations):
 # cls =['car','bicycle','foot']
@@ -29,8 +81,8 @@ def queryroute(id, cls ='bicycle'):
            ycoord_work = float(workdf.loc[id,"lat"]) 
           # print(xcoord_home,ycoord_home,xcoord_work,ycoord_work)# home and work locations from dataframe
            
-           dis, dur = r.distance(ycoord_home,xcoord_home,ycoord_work,xcoord_work, cls)
-           return(dis, dur)
+           dis, dur, route= r.distance(ycoord_home,xcoord_home,ycoord_work,xcoord_work, cls)
+           return(dis, dur, route)
 
 
 id =2  #student id 
@@ -41,24 +93,18 @@ id =2  #student id
 time_interval = 0.01
 #n = 1 #seed
 #set.seed(n)
-name = "Stu_Eve_"+str(id)
 
-def generate_stu_eve (id,    save_csv = True ):
-  tra_mode = ['car','bicycle','foot']
-  dis, duration = queryroute(id, cls = "bicycle") 
+
+name = "Stu_Eve_o_tm"+str(id)  # o_tm means ovin travelmode
+
+def generate_stu_eve (id,  mode4dis=None,  save_csv = True):
+  
+  dis, duration, route= queryroute(id, cls = "bicycle") 
   
   #netherlands, default -- the parameters will be calculated from survey data. 
+  cls_ = travelmean_from_distance2work(dis, param=mode4dis)
   
-  if dis <1000:
-      cls_ = np.random.choice(tra_mode, 1, p = [0.001, 0.1, 0.899] )[0]
-  elif dis <6000:
-      cls_ = np.random.choice(tra_mode, 1, p = [0.05, 0.9, 0.05] )[0]
-  elif dis <10000:
-      cls_ = np.random.choice(tra_mode, 1, p = [0.8, 0.2, 0.000] )[0]
-  else:
-      cls_ = np.random.choice(tra_mode, 1, p = [1, 0, 0] )[0]
-
-  dis, duration = queryroute(id, cls = cls_)  
+  dis, duration, route = queryroute(id, cls = cls_)  
   
   name= "Stu_Eve"+str(id)
   h2w_mean= 9 # mean time left to work
@@ -88,10 +134,12 @@ def generate_stu_eve (id,    save_csv = True ):
   schedule = schedule.rename (columns = {0:"start_time", 1: "end_time", 2:"activity"})
   if save_csv:
       schedule.to_csv("/data/lu01/mobiair_model/act_schedule/"+ name+"p.csv")
-  return schedule
+  return schedule, route
 
 for id in range(10,20):   
-    schedule = generate_stu_eve(id, save_csv=True)
+    schedule, route = generate_stu_eve(id, "NL_student",save_csv=True)
     print(id)
     print(schedule)   
-    
+
+with open('/data/lu01/aamyfile.geojson', 'w') as f:
+    drump(route,f)
