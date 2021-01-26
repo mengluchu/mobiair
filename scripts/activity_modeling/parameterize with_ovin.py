@@ -23,6 +23,8 @@ import scipy
 from scipy import stats as st 
 import shapely.speedups
 from shapely.ops import nearest_points
+from shapely.geometry import  MultiPoint 
+
 shapely.speedups.enable()
 imp.reload(np)
 #from scipy.stats import powerlaw as sci_powerlaw
@@ -92,24 +94,18 @@ def disto2d(workloc, homeloc): # input geopoints.
     return(dis, dur, route)
 
  
-filedir = "~/Documents/GitHub/mobiair/locationdata/"
-
-home_csv = filedir+"Uhomelatlon.csv"
-homedf = pd.read_csv( home_csv) 
-nr_locations = homedf.shape[0]
-#work_csv = filedir+"Uworklatlon.csv"  #working locations of each homeID. Will later group by homeID for sampling
-#workdf = pd.read_csv( work_csv)  #for randomly sample working locations
-
-
-#w_gdf = gpd.GeoDataFrame( 
-#        crs={'init': 'epsg:4326'},
-#        geometry=[Point(xy) for xy in zip(workdf.lon, workdf.lat)])
-w_gdf = Uni
-u = w_gdf.unary_union
-id = 1
-h =homedf.loc[id]
-p=Point(h.lon, h.lat) # distance to degree`maybe better to project. 
-#p: home point, w_gdf: destination (e.g. work) geopandas, u, union geopandas, calculate once so move out of function. goal: activity, sopa: social participation
+# get potential destination points and a union of it. 
+def pot_dest(goal):
+    if goal == "work":
+            w_gdf = gpd.GeoDataFrame(crs={'init': 'epsg:4326'},
+                                     geometry=[Point(xy) for xy in zip(workdf.lon, workdf.lat)])
+    elif goal == "uni": 
+            w_gdf = Uni
+    elif goal == "shops":
+            w_gdf = shops
+    u = w_gdf.unary_union
+    return (w_gdf, u)
+ #p: home point, w_gdf: destination (e.g. work) geopandas, u, union geopandas, calculate once so move out of function. goal: activity, sopa: social participation
 def getdestloc (p, w_gdf, u, goal = "work", sopa = "Scholier/student"):
     
     nearestpoint = nearest_points(p,u)[1]
@@ -144,12 +140,26 @@ def getdestloc (p, w_gdf, u, goal = "work", sopa = "Scholier/student"):
         des_p = workloc.iloc[0]["geometry"]  
     return (p, des_p,num_points )
 
-op, dp, num_p = getdestloc(p, w_gdf, u)
-print(op, dp, num_p )
-op
 
-from shapely.geometry import  MultiPoint 
-MultiPoint([op,dp])
+
+filedir = "~/Documents/GitHub/mobiair/locationdata/"
+
+home_csv = filedir+"Uhomelatlon.csv"
+homedf = pd.read_csv( home_csv) 
+nr_locations = homedf.shape[0]
+work_csv = filedir+"Uworklatlon.csv"  #working locations of each homeID. Will later group by homeID for sampling
+workdf = pd.read_csv( work_csv)  #for randomly sample working locations
+       
+w_gdf, u  = pot_dest("uni")            
+
+for id in range (10): 
+    h =homedf.loc[id]
+    p=Point(h.lon, h.lat) # distance to degree`maybe better to project. 
+    
+    op, dp, num_p = getdestloc(p, w_gdf, u)
+    print(op, dp, num_p )
+    MultiPoint([op,dp])
+
  
 
 #disto2d(op, dp)
