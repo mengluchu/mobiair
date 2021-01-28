@@ -29,8 +29,6 @@ shapely.speedups.enable()
 imp.reload(np)
 #from scipy.stats import powerlaw as sci_powerlaw
 Ovin = pd.read_csv('/Users/menglu/Downloads/Ovin.csv')
-sports = gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/locationdata/Ut_indoorsport.gpkg')
-Uni= gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/locationdata/Ut_Uni_coll.gpkg')
 # travel distance get mean and standard deviation of the log distribution if the distributions are log normal.  
 
 # check is lognormal
@@ -96,13 +94,11 @@ def disto2d(workloc, homeloc): # input geopoints.
  
 # get potential destination points and a union of it. 
 def pot_dest(goal):
-    if goal == "work":
+    if goal is "work":
             w_gdf = gpd.GeoDataFrame(crs={'init': 'epsg:4326'},
                                      geometry=[Point(xy) for xy in zip(workdf.lon, workdf.lat)])
-    elif goal == "uni": 
-            w_gdf = Uni
-    elif goal == "shops":
-            w_gdf = shops
+    else: 
+        w_gdf = goal
     u = w_gdf.unary_union
     return (w_gdf, u)
  #p: home point, w_gdf: destination (e.g. work) geopandas, u, union geopandas, calculate once so move out of function. goal: activity, sopa: social participation
@@ -141,16 +137,18 @@ def getdestloc (p, w_gdf, u, goal = "work", sopa = "Scholier/student"):
     return (p, des_p,num_points )
 
 
-
+sports = gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/locationdata/Ut_indoorsport.gpkg')
+Uni= gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/locationdata/Ut_Uni_coll.gpkg')
 filedir = "~/Documents/GitHub/mobiair/locationdata/"
-
 home_csv = filedir+"Uhomelatlon.csv"
 homedf = pd.read_csv( home_csv) 
 nr_locations = homedf.shape[0]
 work_csv = filedir+"Uworklatlon.csv"  #working locations of each homeID. Will later group by homeID for sampling
 workdf = pd.read_csv( work_csv)  #for randomly sample working locations
-       
-w_gdf, u  = pot_dest("uni")            
+    
+w_gdf, u  = pot_dest(Uni)            
+w_gdf, u  = pot_dest("work") 
+w_gdf, u  = pot_dest(sports)            
 
 for id in range (10): 
     h =homedf.loc[id]

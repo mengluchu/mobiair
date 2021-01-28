@@ -21,18 +21,7 @@ f_d = pd.read_csv( "/Users/menglu/Documents/GitHub/mobiair/distprob/example_full
 r = Routing(server='127.0.0.1', port_car=5001, port_bicycle=5002, port_foot=5003)
 
 
-
-
-# Distance
-dist = 7700
-# Query values from the index
-prob = f_d.iloc[-sum(f_d.iloc[:,0].values > dist),1:].values
-# Print values
-print(prob)
-
-
-
-
+ 
 
 
 
@@ -89,26 +78,12 @@ def travelmean_from_distance2work (dis, param = None):
           cls_ = np.random.choice(tra_mode, 1, p = [0.7, 0.1, 0 ,02] )[0] #electronic or brombike
         else:
           cls_ = np.random.choice(tra_mode, 1, p = [0.3, 0, 0 ,0.7] )[0] #the travel by by train needed at 0.7
-    elif param == "fulltime":
-        a = fulltime.iloc[:,1:5].values.astype(float)
-        if dis <1000:
-         cls_ = np.random.choice(tra_mode, 1, p = a[0])[0]
-        elif dis <2500:
-          cls_ = np.random.choice(tra_mode, 1, p = a[1])[0]
-        elif dis <3700:
-          cls_ = np.random.choice(tra_mode, 1, p = a[2])[0]
-        elif dis < 5000:
-          cls_ = np.random.choice(tra_mode, 1, p =a[3])[0]
-        elif dis <7500:
-          cls_ = np.random.choice(tra_mode, 1, p = a[4])[0]
-        elif dis <10000:
-          cls_ = np.random.choice(tra_mode, 1, p = a[5])[0]
-        elif dis <15000:
-          cls_ = np.random.choice(tra_mode, 1, p = a[6] )[0]
-        else:
-          cls_ = np.random.choice(tra_mode, 1, p = a[7])[0] #the travel by by train needed at 0.1
-  
+    elif param == "fulltime": # reading from the table is the most convenient way, a more cubersome way see "activity_model"
+          prob = f_d.iloc[-sum(f_d.iloc[:,0].values > dis),1:].values
+          cls_ = np.random.choice(tra_mode, 1, p =prob )[0]
+
     return cls_
+            
         
 
 #for i in range(1, nr_locations):

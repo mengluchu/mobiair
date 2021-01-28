@@ -100,6 +100,8 @@ with rasterio.open(output_image,'w', **profile) as dst:
 gdf.buffer(1)
 import json
 from osgeo import ogr, osr
+gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/locationdata/Ut_indoorsport.gpkg')
+
 gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/aamyfile.geojson')
 f = open('/Users/menglu/Documents/GitHub/mobiair/aamyfile.geojson')
 data = json.load(f)
