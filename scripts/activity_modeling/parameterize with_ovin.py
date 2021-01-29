@@ -24,11 +24,10 @@ from scipy import stats as st
 import shapely.speedups
 from shapely.ops import nearest_points
 from shapely.geometry import  MultiPoint 
-
+import time
 shapely.speedups.enable()
-imp.reload(np)
+#imp.reload(np)
 #from scipy.stats import powerlaw as sci_powerlaw
-Ovin = pd.read_csv('/Users/menglu/Downloads/Ovin.csv')
 # travel distance get mean and standard deviation of the log distribution if the distributions are log normal.  
 
 # check is lognormal
@@ -81,15 +80,15 @@ def distance(socialpartition="Scholier/student"):
     shopping_dist = Ovin.query('Doel =="Winkelen/boodschappen doen"& MaatsPart=="{}"'.format(socialpartition))[['KAf_mean']]
     return(work_dist,outdoor_dist,shopping_dist)
 
-def disto2d(workloc, homeloc): # input geopoints. 
+def disto2d(homeloc,workloc): # input geopoints. 
     xcoord_work = workloc.centroid.x
     ycoord_work = workloc.centroid.y
     xcoord_home = homeloc.centroid.x
     ycoord_home =homeloc.centroid.y
     
-    dis, dur, route= r.distance(ycoord_home, xcoord_home, ycoord_work, xcoord_work, cls)
-               
-    return(dis, dur, route)
+    #dis, dur= r.distance(ycoord_home, xcoord_home, ycoord_work, xcoord_work, cls)
+    p = [xcoord_home,ycoord_home,xcoord_work,ycoord_work]
+    return(p)
 
  
 # get potential destination points and a union of it. 
@@ -134,32 +133,96 @@ def getdestloc (p, w_gdf, u, goal = "work", sopa = "Scholier/student"):
         print(f'sample from {num_points} points')
         workloc =  worklocset.sample(n = 1, replace=True, random_state=1)
         des_p = workloc.iloc[0]["geometry"]  
-    return (p, des_p,num_points )
+    return (p, des_p,num_points)
 
+def storedf(homedf, w_gdf, u, n=50, csvname = "U17_h2s"):    
+    totalarray = [0,0,0,0,0]
+    for id in range (n): 
+        h =homedf.loc[id]
+        p=Point(h.lon, h.lat) # distance to degree`maybe better to project. 
+        
+        op, dp, num_p  = getdestloc(p, w_gdf, u)
+        parray = disto2d(op,dp)
+        
+        parray.insert(4,num_p)     
+        
+        #totalarray = totalarray.append(parray)
+        #print(totalarray)
+        totalarray = np.concatenate((totalarray, parray), axis=0)
+    
+    total = np.array (totalarray )
+    
+    totalre = total.reshape([-1, 5])[1:,:]
+    totalre = pd.DataFrame(totalre)
+    totalre = totalre.rename (columns = {0:"home_lon", 1: "home_lat", 2:"work_lon", 3:"work_lat", 4: "num_candi"})
 
-sports = gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/locationdata/Ut_indoorsport.gpkg')
-Uni= gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/locationdata/Ut_Uni_coll.gpkg')
-filedir = "~/Documents/GitHub/mobiair/locationdata/"
-home_csv = filedir+"Uhomelatlon.csv"
+    totalre.to_csv(f'{filename}/genloc/{csvname}.csv')
+    return 
+
+filedir = "/Users/menglu/Documents/GitHub/mobiair/"
+Ovin = pd.read_csv('human_data/dutch_activity/Ovin.csv')
+
+sports = gpd.read_file('locationdata/Ut_indoorsport.gpkg')
+Uni= gpd.read_file('locationdata/Ut_Uni_coll.gpkg')
+
+home_csv = filedir+"locationdata/Uhomelatlon.csv"
 homedf = pd.read_csv( home_csv) 
+
 nr_locations = homedf.shape[0]
-work_csv = filedir+"Uworklatlon.csv"  #working locations of each homeID. Will later group by homeID for sampling
+
+work_csv = filedir+"locationdata/Uworklatlon.csv"  #working locations of each homeID. Will later group by homeID for sampling
 workdf = pd.read_csv( work_csv)  #for randomly sample working locations
+
     
 w_gdf, u  = pot_dest(Uni)            
-w_gdf, u  = pot_dest("work") 
-w_gdf, u  = pot_dest(sports)            
+storedf(homedf, w_gdf, u, "h2Uni")
 
-for id in range (10): 
+w_gdf, u  = pot_dest("work") 
+storedf(homedf, w_gdf, u, "h2w")
+
+w_gdf, u  = pot_dest(sports)            
+storedf(homedf, w_gdf, u, csvname= "h2sp")
+
+# save to df
+ 
+#start = time.time()
+#end = time.time()
+#print(end - start)
+
+'''
+#save a buffer and all the work locations for illustraiton. 
+# need to change the getdestloc to return pbuf and worklocset.
+
+for id in range (4,5): 
     h =homedf.loc[id]
     p=Point(h.lon, h.lat) # distance to degree`maybe better to project. 
     
-    op, dp, num_p = getdestloc(p, w_gdf, u)
+    op, dp, num_p, pbuf, worklocset = getdestloc(p, w_gdf, u)
     print(op, dp, num_p )
     MultiPoint([op,dp])
 
- 
+#save
+import fiona
+from shapely.geometry import mapping, Polygon
+schema = {
+    'geometry': 'Polygon',
+    'properties': {'id': 'int'},
+}
+with fiona.open(filedir+'buffer.shp', 'w', 'ESRI Shapefile', schema) as c:
+    ## If there are multiple geometries, put the "for" loop here
+    c.write({
+        'geometry': mapping(pbuf),
+        'properties': {'id': 123},
+    })
+'''    
+  
 
+
+
+
+# 4.8s 100, means half anhour for a schedule.  
+
+ len(homedf)
 #disto2d(op, dp)
 dp["geometry"]
 .xy

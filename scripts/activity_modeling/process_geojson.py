@@ -12,6 +12,9 @@ import os
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
+
+
+
 a = gpd.tools.geocode("Utrecht")
 a.buffer(1)
 # pyproj.CRS("+proj=laea +lat_0=51 +lon_0=9.5 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs ").to_epsg())
@@ -100,6 +103,10 @@ with rasterio.open(output_image,'w', **profile) as dst:
 gdf.buffer(1)
 import json
 from osgeo import ogr, osr
+
+
+a = gpd.read_file('/Users/menglu/Downloads/routes/h2w_10_bicycle.gpkg')
+a.plot()
 gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/locationdata/Ut_indoorsport.gpkg')
 
 gpd.read_file('/Users/menglu/Documents/GitHub/mobiair/aamyfile.geojson')
