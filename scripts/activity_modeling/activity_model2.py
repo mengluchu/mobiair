@@ -17,16 +17,10 @@ homedf = pd.read_csv( home_csv)
 workdf = pd.read_csv( work_csv)  #for randomly sample working locations
 nr_locations = homedf.shape[0]
 
-f_d = pd.read_csv( "/Users/menglu/Documents/GitHub/mobiair/distprob/example_fulltime.csv")        
-r = Routing(server='127.0.0.1', port_car=5001, port_bicycle=5002, port_foot=5003)
+#f_d = pd.read_csv( "/Users/menglu/Documents/GitHub/mobiair/distprob/example_fulltime.csv")        
 
-
- 
-
-
-
-
-
+f_d = pd.read_csv( "/data/projects/mobiair/distprob/example_fulltime.csv")        
+r = Routing(server='127.0.0.1', port_car=55001, port_bicycle=55002, port_foot=55003, port_train=55004)
 
 
 def travelmean_from_distance2work (dis, param = None):
@@ -75,7 +69,7 @@ def travelmean_from_distance2work (dis, param = None):
         elif dis <15000:
           cls_ = np.random.choice(tra_mode, 1, p = [0.5, 0.4, 0 ,0.1] )[0] # also include train 
         elif dis < 30000:
-          cls_ = np.random.choice(tra_mode, 1, p = [0.7, 0.1, 0 ,02] )[0] #electronic or brombike
+          cls_ = np.random.choice(tra_mode, 1, p = [0.7, 0.1, 0 ,0.2] )[0] #electronic or brombike
         else:
           cls_ = np.random.choice(tra_mode, 1, p = [0.3, 0, 0 ,0.7] )[0] #the travel by by train needed at 0.7
     elif param == "fulltime": # reading from the table is the most convenient way, a more cubersome way see "activity_model"
@@ -89,18 +83,21 @@ def travelmean_from_distance2work (dis, param = None):
 #for i in range(1, nr_locations):
 # cls =['car','bicycle','foot']
 #for cls in ['car','bicycle','foot']:
-def queryroute(id, cls ='bicycle'):          
+def queryroute(id, cls ='bicycle', writegpkg = True, r_act="h2w" ):          
            xcoord_home = float(homedf.loc[id,"lon"])
            ycoord_home = float(homedf.loc[id,"lat"])
            xcoord_work = float(workdf.loc[id,"lon"])
            ycoord_work = float(workdf.loc[id,"lat"]) 
           # print(xcoord_home,ycoord_home,xcoord_work,ycoord_work)# home and work locations from dataframe
            
-           dis, dur, route= r.distance(ycoord_home,xcoord_home,ycoord_work,xcoord_work, cls)
-           return(dis, dur, route)
+           dis, dur = r.distance(ycoord_home,xcoord_home,ycoord_work,xcoord_work, cls)
+           if writegpkg:
+               r.gpkg(ycoord_home,xcoord_home,ycoord_work,xcoord_work, cls, f'/data/projects/mobiair/routes/{r_act}_{id}_{cls}.gpkg')
+
+           return(dis, dur)
 
 
-id =2  #student id 
+#id =2  #student id 
 #1 from this i will get work and home location, then calculate route_duration. 
 #route_duration =np.random.normal(0.3,0.1,1) #18 min #query from OSM 
 #cls = random.sample(['car','bicycle','foot'],1) better based on distance
@@ -114,12 +111,12 @@ name = "Stu_Eve_o_tm"+str(id)  # o_tm means ovin travelmode
 
 def generate_stu_eve (id,  mode4dis=None,  save_csv = True):
   
-  dis, duration, route= queryroute(id, cls = "bicycle") 
+  dis, duration= queryroute(id, cls = "bicycle") 
   
   #netherlands, default -- the parameters will be calculated from survey data. 
   cls_ = travelmean_from_distance2work(dis, param=mode4dis)
   
-  dis, duration, route = queryroute(id, cls = cls_)  
+  dis, duration  = queryroute(id, cls = cls_)  
   
   name= "Stu_Eve"+str(id)
   h2w_mean= 9 # mean time left to work
@@ -149,12 +146,12 @@ def generate_stu_eve (id,  mode4dis=None,  save_csv = True):
   schedule = schedule.rename (columns = {0:"start_time", 1: "end_time", 2:"activity"})
   if save_csv:
       schedule.to_csv("/data/lu01/mobiair_model/act_schedule/"+ name+"p.csv")
-  return schedule, route
+  return schedule
 
 for id in range(10,20):   
-    schedule, route = generate_stu_eve(id, "NL_student",save_csv=True)
+    schedule = generate_stu_eve(id, "NL_student",save_csv=True)
     print(id)
     print(schedule)   
 
-with open('/data/lu01/aamyfile.geojson', 'w') as f:
-    drump(route,f)
+#with open('/data/lu01/aamyfile.geojson', 'w') as f:
+#    drump(route,f)

@@ -8,7 +8,7 @@ Created on Fri Jan 15 14:21:18 2021
 from mobiair import Routing
 import pandas as pd 
 import numpy as np
-from geojson import dump
+#from geojson import dump
 #import random
 filedir = "/data/lu01/"
 home_csv = filedir+"Uhomelatlon.csv"
@@ -18,8 +18,8 @@ workdf = pd.read_csv( work_csv)  #for randomly sample working locations
 nr_locations = homedf.shape[0]
 
 f_d = pd.read_csv( "/Users/menglu/Documents/GitHub/mobiair/distprob/example_fulltime.csv")        
-r = Routing(server='127.0.0.1', port_car=5001, port_bicycle=5002, port_foot=5003)
 
+r = Routing(server='127.0.0.1', port_car=55001, port_bicycle=55002, port_foot=55003, port_train=55004)
 
 
 
@@ -29,15 +29,6 @@ dist = 7700
 prob = f_d.iloc[-sum(f_d.iloc[:,0].values > dist),1:].values
 # Print values
 print(prob)
-
-
-
-
-
-
-
-
-
 
 
 def travelmean_from_distance2work (dis, param = None):
@@ -121,8 +112,8 @@ def queryroute(id, cls ='bicycle'):
            ycoord_work = float(workdf.loc[id,"lat"]) 
           # print(xcoord_home,ycoord_home,xcoord_work,ycoord_work)# home and work locations from dataframe
            
-           dis, dur, route= r.distance(ycoord_home,xcoord_home,ycoord_work,xcoord_work, cls)
-           return(dis, dur, route)
+           dis, dur = r.distance(ycoord_home,xcoord_home,ycoord_work,xcoord_work, cls)
+           return(dis, dur)
 
 
 id =2  #student id 
@@ -144,8 +135,9 @@ def generate_stu_eve (id,  mode4dis=None,  save_csv = True):
   #netherlands, default -- the parameters will be calculated from survey data. 
   cls_ = travelmean_from_distance2work(dis, param=mode4dis)
   
-  dis, duration, route = queryroute(id, cls = cls_)  
-  
+  dis, duration = queryroute(id, cls = cls_)  
+  r.gpkg(47.5596321,7.5883672,46.9479288,7.4481001, cls_, f'route{id}_{cls}.gpkg')
+
   name= "Stu_Eve"+str(id)
   h2w_mean= 9 # mean time left to work
   w2h_mean = 17
@@ -181,5 +173,5 @@ for id in range(10,20):
     print(id)
     print(schedule)   
 
-with open('/data/lu01/aamyfile.geojson', 'w') as f:
-    drump(route,f)
+#with open('/data/lu01/aamyfile.geojson', 'w') as f:
+#    drump(route,f)
