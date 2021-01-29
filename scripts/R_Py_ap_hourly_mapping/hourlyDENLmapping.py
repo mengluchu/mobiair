@@ -27,8 +27,10 @@ import seaborn as sns
 # if we just do random sampling in space-time. We have a quite high R2. 
 # But it is because if the Location 1 t1 is in the training, then the L1 t2 is going to be small. So it is not a reliable accuracy assessment. 
 # Most importantly, for the location we want to predict, we dont know the entire time series.
+spreadurl = 'https://raw.githubusercontent.com/mengluchu/mobiair/master/mapping_data/DENL17_hr_spread.csv'
+# make sure your github is open! 
 def random_testtrain():
-    ap = pd.read_csv('/Users/menglu/Documents/Github/mobiair/mapping_data/DENL17_hr.csv')
+    ap = pd.read_csv(spreadurl)
     ap_pred = ap.filter (regex="pop|nig|trop|ele|wind|temp|ind|GH|road|value|hour")
     X_train, X_test, Y_train, Y_test = train_test_split(ap_pred, ap['wkd_hr_value'], test_size=0.2, random_state=42)
     X_train["hours"] = X_train["hours"].astype(int)
@@ -49,7 +51,7 @@ def random_testtrain():
 random_testtrain()
 
 # let's do it properly 
-ap = pd.read_csv('/Users/menglu/Documents/Github/mobiair/mapping_data/DENL17_hr_spread.csv')
+ap = pd.read_csv('https://raw.githubusercontent.com/mengluchu/mobiair/master/mapping_data/DENL17_hr.csv')
 train_size = int(0.8* len(ap)) 
 
 # sampling only over space. because prediction over time is better than over space (i.e.lower temporal variance). But for the location we want to predict, we dont know the entire time series. if we have value at t1, it will predict t2 very well
