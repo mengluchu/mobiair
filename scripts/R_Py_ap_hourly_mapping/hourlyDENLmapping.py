@@ -22,15 +22,30 @@ import matplotlib.pyplot as plt
 from catboost import CatBoostRegressor, Pool
 import lightgbm as lgb
 import seaborn as sns
+import matplotlib.pyplot as plt
+import rasterio
+import rasterio.mask 
+import geopandas as gpd
+ 
 #os.getcwd()
 
 # if we just do random sampling in space-time. We have a quite high R2. 
 # But it is because if the Location 1 t1 is in the training, then the L1 t2 is going to be small. So it is not a reliable accuracy assessment. 
 # Most importantly, for the location we want to predict, we dont know the entire time series.
+aplong_ulr = 'https://raw.githubusercontent.com/mengluchu/mobiair/master/mapping_data/DENL17_hr.csv'
 spreadurl = 'https://raw.githubusercontent.com/mengluchu/mobiair/master/mapping_data/DENL17_hr_spread.csv'
+res = 100 
+ap = pd.read_csv(spreadurl)
+
+#if for only 100m 
+if res is 100:
+    ap = ap.drop(ap.filter(regex='_25$|_50$').columns, axis = 1)
+ap.shape
+train_size = int(0.8* len(ap)) 
+
 # make sure your github is open! 
 def random_testtrain():
-    ap = pd.read_csv(spreadurl)
+    ap = pd.read_csv(aplong_ulr)
     ap_pred = ap.filter (regex="pop|nig|trop|ele|wind|temp|ind|GH|road|value|hour")
     X_train, X_test, Y_train, Y_test = train_test_split(ap_pred, ap['wkd_hr_value'], test_size=0.2, random_state=42)
     X_train["hours"] = X_train["hours"].astype(int)
@@ -51,8 +66,6 @@ def random_testtrain():
 random_testtrain()
 
 # let's do it properly 
-ap = pd.read_csv('https://raw.githubusercontent.com/mengluchu/mobiair/master/mapping_data/DENL17_hr.csv')
-train_size = int(0.8* len(ap)) 
 
 # sampling only over space. because prediction over time is better than over space (i.e.lower temporal variance). But for the location we want to predict, we dont know the entire time series. if we have value at t1, it will predict t2 very well
 def wide2long (wide):
@@ -111,14 +124,14 @@ def preprocessing (ap, rand_stat=1, hour2int = False, onehotencode = True, selec
 
     return X_train, Y_train, X_test, Y_test
 
-X_train, Y_train, X_test, Y_test = preprocessing(ap, rand_stat = 1, hour2int=False, onehotencode=True, select_hr=1)
-X_train, Y_train, X_test, Y_test
+#X_train, Y_train, X_test, Y_test = preprocessing(ap, rand_stat = 1, hour2int=False, onehotencode=True, select_hr=1)
+#X_train, Y_train, X_test, Y_test
  
 
 # way 2 easier 
 def get_r2_numpy_corrcoef(x, y):
     return np.corrcoef(x, y)[0, 1]**2
-def fitxgb (X_train, Y_train, X_test, Y_test, plot = True, r2=True):
+def fitxgb (X_train, Y_train, X_test, Y_test, plot =False, r2=True):
     xg_reg = xgb.XGBRegressor(objective = "reg:squarederror",booster = "dart", learning_rate = 0.007, max_depth =6 , n_estimators = 300,gamma =5, alpha =2) 
     xg_reg.fit(X_train ,Y_train) # predictor at the station and station measurements
     yhatxgb = xg_reg.predict(X_test) # 1 degree tile
@@ -174,11 +187,145 @@ def fit_lightgbm(X_train, Y_train, X_test, Y_test,  r2=True):
     #math.sqrt(metrics.mean_squared_error(Y_test, y_hatxgb))
     #metrics.r2_score(Y_test,y_hatxgb)
     #print("mae", "rmse", abs(yhatxgb - Y_test).mean(), math.sqrt(((yhatxgb - Y_test)*(yhatxgb - Y_test)).mean()))
-    return(mae, rmse, rrmse, r2)
+    return (mae, rmse, rrmse, r2)
+
+def onlyfit_lightgbm(X_train, Y_train, X_test, Y_test):
+    hyper_params = {
+    'task': 'train',
+    'boosting_type': 'gbdt',
+    'objective': 'regression',
+    'metric': ['l1', 'rmse'],
+    'learning_rate': 0.007,
+    'feature_fraction': 0.8,
+     'verbose': 0,
+    "max_depth": 6,
+    "max_bin": 512,
+    "num_leaves": 40,
+    "num_iterations": 100000,
+    "n_estimators": 300,
+    "verbose":-1
+    }
+  #   'bagging_fraction': 0.7,
+  #  'bagging_freq': 10, "num_leaves": 12, 
+  
+    gbm = lgb.LGBMRegressor(**hyper_params)    
+    gbm.fit(X_train ,Y_train, eval_set=[(X_test, Y_test)],
+       eval_metric='l1',
+        early_stopping_rounds=1000, verbose = 2000) # predictor at the station and station measurements
+    return (gbm)
+
+def rasterlgm(X_test, gbm):
+    # predictor at the station and station measurements
+    y_pred = gbm.predict(pd.DataFrame(X_test).T, num_iteration=gbm.best_iteration_)
+    return (y_pred)
+
+
+# read tif as array
+
+#not used in this study 
+def gdal_2array(ras_dir, X_train, savename = None) :  #X_train: dataframe used for training
+    le = len(X_train)
+    result = []
+    for i in X_train.columns: # dataframe names
+        rasterdir = f'{ras_dir}/{i}.tif'
+        #le = len(os.listdir(rasterdir ) )
+        arr = np.array(gdal.Open(rasterdir).ReadAsArray())
+        result.append(arr)
+        print(i)
+    
+    result = np.array(result) 
+    result = np.moveaxis (result, 0, 2)
+    if savename is not None:
+        np.save(savename, result)
+    return (result)
+
+def get_province (filedir, rasterfile=f'{ras_dir}/wind_speed_10m_9.tif', provname = "Utrecht"):   
+     
+    file_path = filedir+"/NLD_adm_shp/NL_poly.shp"
+
+    gdf_prov = gpd.read_file(file_path)
+    #rd new  projection
+    Utrecht = gdf_prov[gdf_prov.PROV_NAAM == provname]
+    if rasterfile is not None:      # if None then project later
+        src = rasterio.open(rasterfile)
+        rcrs = src.crs
+        Utrecht = Utrecht.to_crs (rcrs)
+    return (Utrecht)
+
+def crop_2array(ras_dir, X_train, polygon=Utrecht, savename = None):
+    le = len(X_train)
+    utrecht_ras = []
+    for i in X_train.columns:
+            rasterdir = f'{ras_dir}/{i}.tif'
+            #le = len(os.listdir(rasterdir ) )
+            arr = np.array(gdal.Open(rasterdir).ReadAsArray()   )
+            
+            print(i)
+        
+            with rasterio.open(rasterdir) as src:
+                rcrs = src.crs
+                polygon = polygon.to_crs (rcrs) 
+                
+                out_image, out_transform = rasterio.mask.mask(src, polygon['geometry'], crop=True)
+                out_image = out_image.squeeze()
+                out_meta = src.meta
+                out_meta.update({"driver": "GTiff",
+                 "height": out_image.shape[0],
+                 "width": out_image.shape[1],
+                 "transform": out_transform})
+
+                
+                out_image[out_image <0]=np.nan
+                utrecht_ras.append(out_image)
+    
+    Ut_ras = np.array(utrecht_ras) 
+    Ut_ras = np.moveaxis (Ut_ras, 0, 2)
+    if savename is not None:
+        np.save(savename, Ut_ras)  
+    return (Ut_ras, out_meta)
+
+def plot_predictor ()
+    fig, axs = plt.subplots(nrows=8, ncols=7, figsize=(55,15),
+                            subplot_kw={'xticks': [], 'yticks': []})
+    for i, ax in enumerate(axs.flat):
+        if i < Ut_ras.shape[2]:
+            
+            a = ax.imshow(Ut_ras[:,:,i])
+            ax.set_title(X_train.columns[i])
+            fig.colorbar(a,  ax=ax)
+        
+    #    ax.colorbar()
+    plt.savefig(filedir+"prediUt.png")
+
  
- 
-#inspect.signature(MERF)
-def merf():
+def predicthourly(hr, out_meta):
+    X_train, Y_train, X_test, Y_test = preprocessing(ap,1, False, True , hr ) # do it for all the hours
+    gbm = onlyfit_lightgbm(X_train, Y_train, X_test, Y_test) 
+    # only evaluate using the gbm.fit but not doing it manually (i.e. not returning the metrics)
+    
+    #test1 = np.random.rand(3,3,X_test.shape[1])
+    t1 = np.apply_along_axis(rasterlgm, 2, Ut_ras, gbm)
+    t1 = t1.astype("float32")
+    #    plt.imshow(t1)      
+    t1 = t1.squeeze()
+    t1 = np.expand_dims(t1, axis=0)
+    with rasterio.open(f'{filedir}/prediction/NL100_t{hr}.tif', 'w', **out_meta) as dst:
+        dst.write(t1)
+
+filedir = '/Users/menglu/Documents/Github/mobiair'
+ras_dir =  os.path.join("/Volumes","Meng_Mac", "NL_100m") 
+   
+Utrecht = get_province(filedir, None, "Utrecht") # project later
+
+X_train, Y_train, X_test, Y_test = preprocessing(ap, 1, False, True , 1 ) # only for getting the names
+Ut_ras, out_meta = crop_2array(ras_dir, X_train) # get all the rasters
+
+for i in range (0,2):
+    predicthourly(i, out_meta)
+    
+
+  #inspect.signature(MERF)
+def merf(normalise = False):
     hyper_params = {
         'task': 'train',
         'boosting_type': 'gbdt',
@@ -202,9 +349,7 @@ def merf():
     ap2 = ap.fillna(method = "pad") 
     ap2.isna().sum().sum()
     X_train, Y_train, X_test, Y_test = preprocessing(ap2, hour2int = True, onehotencode = False)
-    
-    len(X_train.columns)
-    
+      
     Z_train = np.ones((len(X_train), 1))
     
     clusters_train = X_train['hours']
@@ -213,18 +358,20 @@ def merf():
     X_train1 = X_train.drop(["hours"],axis = 1)
     
     X_test1 = X_test.drop(["hours"],axis = 1)
-    normalise = True
+    
     if normalise:
         X_train1 =(X_train1-X_train1.mean())/X_train1.std()
         X_test1 =(X_test1-X_test1.mean())/X_test1.std()
-        
-        Y_train1 =(Y_train-Y_train.mean())/Y_train.std()
+    # we should not nornalise the Y (response)    
+    #   Y_train1 =(Y_train-Y_train.mean())/Y_train.std()
          
     #my_imputer = SimpleImputer()
     #X_train1 = my_imputer .fit_transform(X_train1)   # fit missing
     #X_test1  = my_imputer .fit_transform(X_test1)  
     
-    # only converged after normalise everything
+    # normalising for boosting is commonly not necessary, but for the mixed effect models 
+    # we actually may want to normalise. But we only normalise X (predictors)!
+       # check if missing 
     print( Y_train1.isnull().any().any(),X_train1.isnull().any().any(),X_test.isnull().any().any())
     
     merf = MERF(gbm, max_iterations = 4)
@@ -232,9 +379,9 @@ def merf():
     
     Z_test = np.ones((len(X_test1), 1))
     y_pred_ = merf.predict(X_test1, Z_test, clusters_test)
-    
-    if normalise:
-        y_pred = y_pred_*Y_train.std()+Y_train.mean() 
+    # also normalise the response and prediction wont work
+    #if normalise:
+    #    y_pred = y_pred_*Y_train.std()+Y_train.mean() 
         
     mae = abs(y_pred - Y_test).mean()
     rmse =  math.sqrt(((y_pred - Y_test)*(y_pred - Y_test)).mean())
@@ -243,7 +390,7 @@ def merf():
     return(mae, rmse, rrmse, r2)
 
 # merf result: it is much slower because it fits gbm n times. 
-mae, rmse, rrmse, r2 = merf()
+#mae, rmse, rrmse, r2 = merf()
 
 # hour to int 
 X_train, Y_train, X_test, Y_test = preprocessing(ap, hour2int = True, onehotencode = False)
@@ -263,9 +410,8 @@ lgbmae2, lgbrmse2, lgbrrmse2, lgbr22= fit_lightgbm(X_train, Y_train, X_test, Y_t
 result = pd.DataFrame({"as_int_xgb": [mae1, rmse1, rrmse1, r21],
                            "as_int_lgb":[lgbmae1, lgbrmse1, lgbrrmse1, lgbr21],
                            "onehot_xgb":[mae2, rmse2, rrmse2, r22 ],
-                           "onehot_lgb":[lgbmae2, lgbrmse2, lgbrrmse2, lgbr22],
-                      "merf": [mae, rmse, rrmse, r2]}
-                      )
+                           "onehot_lgb":[lgbmae2, lgbrmse2, lgbrrmse2, lgbr22]})
+                          # ,"merf": [mae, rmse, rrmse, r2]}                      
 
 def show_values_on_bars(axs):
     def _show_on_single_plot(ax):        
