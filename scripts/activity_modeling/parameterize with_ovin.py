@@ -26,7 +26,7 @@ from shapely.ops import nearest_points
 from shapely.geometry import  MultiPoint 
 import time
 shapely.speedups.enable()
-#imp.reload(np)
+imp.reload(pd)
 #from scipy.stats import powerlaw as sci_powerlaw
 # travel distance get mean and standard deviation of the log distribution if the distributions are log normal.  
 
@@ -74,7 +74,10 @@ def gen_lnorm(df, method="manual"):
  
 #based on social occupation and travel goal, output work, outdoor, shopping distances 
 def distance(socialpartition="Scholier/student"):
-    work_dist = Ovin.query('Doel == "Werken" & MaatsPart=="{}"'.format(socialpartition))[['KAf_mean']]
+    if socialpartition == "Scholier/student":# only consider eductation for students
+        work_dist = Ovin.query('Doel == "Onderwijs/cursus volgen" & MaatsPart=="{}"'.format(socialpartition))[['KAf_mean']]
+    else:
+        work_dist = Ovin.query('Doel == "Werken" & MaatsPart=="{}"'.format(socialpartition))[['KAf_mean']]
     
     outdoor_dist = Ovin.query('Doel == "Sport/hobby" &  MaatsPart=="{}"'.format(socialpartition))[['KAf_mean']]
     shopping_dist = Ovin.query('Doel =="Winkelen/boodschappen doen"& MaatsPart=="{}"'.format(socialpartition))[['KAf_mean']]
@@ -93,10 +96,10 @@ def disto2d(homeloc,workloc): # input geopoints.
  
 # get potential destination points and a union of it. 
 def pot_dest(goal):
-    if goal is "work":
+    if type(goal) is pd.core.frame.DataFrame: 
             w_gdf = gpd.GeoDataFrame(crs={'init': 'epsg:4326'},
-                                     geometry=[Point(xy) for xy in zip(workdf.lon, workdf.lat)])
-    else: 
+                                     geometry=[Point(xy) for xy in zip(goal.lon, goal.lat)])
+    else: # geopandas
         w_gdf = goal
     u = w_gdf.unary_union
     return (w_gdf, u)
@@ -156,32 +159,38 @@ def storedf(homedf, w_gdf, u, n=50, csvname = "U17_h2s"):
     totalre = pd.DataFrame(totalre)
     totalre = totalre.rename (columns = {0:"home_lon", 1: "home_lat", 2:"work_lon", 3:"work_lat", 4: "num_candi"})
 
-    totalre.to_csv(f'{filename}/genloc/{csvname}.csv')
+    totalre.to_csv(f'{csvname}.csv')
     return 
 
 filedir = "/Users/menglu/Documents/GitHub/mobiair/"
-Ovin = pd.read_csv('human_data/dutch_activity/Ovin.csv')
+Ovin = pd.read_csv(filedir+'human_data/dutch_activity/Ovin.csv')
 
-sports = gpd.read_file('locationdata/Ut_indoorsport.gpkg')
-Uni= gpd.read_file('locationdata/Ut_Uni_coll.gpkg')
+sports = gpd.read_file(filedir+'locationdata/Ut_indoorsport.gpkg')
+Uni= gpd.read_file(filedir+'locationdata/Ut_Uni_coll.gpkg')
 
 home_csv = filedir+"locationdata/Uhomelatlon.csv"
 homedf = pd.read_csv( home_csv) 
+
+Uni_ut_home = pd.read_csv(filedir +"locationdata/Uni_Ut_home.csv")
 
 nr_locations = homedf.shape[0]
 
 work_csv = filedir+"locationdata/Uworklatlon.csv"  #working locations of each homeID. Will later group by homeID for sampling
 workdf = pd.read_csv( work_csv)  #for randomly sample working locations
 
-    
+   
 w_gdf, u  = pot_dest(Uni)            
-storedf(homedf, w_gdf, u, "h2Uni")
+storedf(homedf, w_gdf, u, n= 50, csvname= f'{filedir}/genloc/h2Uni')
 
-w_gdf, u  = pot_dest("work") 
-storedf(homedf, w_gdf, u, "h2w")
+w_gdf, u  = pot_dest(workdf) 
+storedf(homedf, w_gdf, u, n= 50, csvname=   f'{filedir}/genloc/h2w')
 
 w_gdf, u  = pot_dest(sports)            
-storedf(homedf, w_gdf, u, csvname= "h2sp")
+storedf(homedf, w_gdf, u, n= 50, csvname=  f'{filedir}/genloc/h2sp')
+
+
+w_gdf, u  = pot_dest(Uni)            
+storedf(Uni_ut_home, w_gdf, u, n= Uni_ut_home.shape[0], csvname= f'{filedir}/genloc/ut_Uni4')
 
 # save to df
  
@@ -221,12 +230,9 @@ with fiona.open(filedir+'buffer.shp', 'w', 'ESRI Shapefile', schema) as c:
 
 
 # 4.8s 100, means half anhour for a schedule.  
-
- len(homedf)
+ 
 #disto2d(op, dp)
-dp["geometry"]
-.xy
-op.plot()
+ 
 #work_dist, outdoor_dist, shopping_dist = distance( "Werkzaam >= 30 uur per week") 
 
 #work_dist, outdoor_dist, shopping_dist = distance( "Werkzaam 12-30 uur per week" ) 

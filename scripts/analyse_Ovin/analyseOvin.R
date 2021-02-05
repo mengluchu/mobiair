@@ -1,17 +1,17 @@
-# from a persons social occupation, e.g. full time working or not, and the purpose, e.g. go to work, and going to do hobby, we can get a distribution of the distance. We sample from this distribution, calculate a buffer of possible locations to go. 
+# from a persons social occupation, e.g. full time working or not, and the purpose, e.g. go to work, and going to do hobby, we can get a distribution of the distance. We sample from this distribution, calculate a buffer of possible locations to go.
 library(data.table)
 library(dplyr)
 library(ggplot)
 library(purrr)
 library(tidyr)
 a = fread("~/Downloads/Ovin.csv")
- 
+
 #summary(as.numeric(a$VertPC))
 #summary(lm(KAf_high~age_lb+Sted, data =a ))
 work = a%>%filter(Doel == "Werken")
 shopping = a%>%filter(Doel == "Winkelen/boodschappen doen")
- 
-#profile 
+
+#profile
 schoolstu = a%>%filter(MaatsPart=="Scholier/student"&age_lb<18) #22,485/30,218
 uni = a%>%filter(MaatsPart=="Scholier/student"&age_lb>18)#22,485/30,218
 fulltime = a%>%filter(MaatsPart=="Werkzaam >= 30 uur per week")#22,485/30,218
@@ -20,7 +20,7 @@ parttime = a%>%filter(MaatsPart== "Werkzaam 12-30 uur per week" )#22,485/30,218
 #purpose
 studentshopping = a%>%filter(Doel == "Winkelen/boodschappen doen"& MaatsPart=="Scholier/student")
 single = a%>%filter(Doel == "Werken" & MaatsPart=="Eigen huishouding")
-student = a%>%filter(Doel == "Werken" & MaatsPart=="Scholier/student")
+student = a%>%filter(Doel == "Onderwijs/cursus volgen" & MaatsPart=="Scholier/student")
 halftime = a%>%filter(Doel == "Werken" & MaatsPart=="Werkzaam 12-30 uur per week")
 
 aa1=read.csv("~/Documents/GitHub/mobiair/distprob/Uni_stu.csv")
@@ -40,7 +40,7 @@ distnames2 = dist*1000
 
 proce = function(aa1){
 rownames (aa1) = distnames2
-aa1%>%dplyr::select(-X) 
+aa1%>%dplyr::select(-X)
 }
 
 aa1 = proce(aa1)
@@ -49,17 +49,17 @@ aa3 =proce(aa3)
 aa4 = proce(aa4)
 
 #plot
- 
+
 maketheplot = function(aa2, plotname) {
 aa2["distance"] = as.numeric(rownames(aa2))
 aa2 = aa2%>%arrange( distance)
 dfaa = gather(aa2, "transportation_mean", "value", -distance)
- 
- 
-ggplot(dfaa, aes(x=as.factor(distance/1000), y =value, fill = transportation_mean)) + 
+
+
+ggplot(dfaa, aes(x=as.factor(distance/1000), y =value, fill = transportation_mean)) +
   geom_bar(stat = "identity")+scale_fill_brewer(palette="Paired")+ylab("probability")+xlab("distance to school (km)")+theme_bw()+
   theme(
-    panel.border = element_blank(), # frame or not 
+    panel.border = element_blank(), # frame or not
     strip.background = element_rect(
       color="#FFFFFF", fill="#FFFFFF", size=0.5, linetype = NULL),
     axis.text.x = element_text(angle = 45),
@@ -73,7 +73,7 @@ ggplot(dfaa, aes(x=as.factor(distance/1000), y =value, fill = transportation_mea
 ggsave(plotname)
 }
 
-maketheplot(aa2= aa1, "~/Documents/GitHub/mobiair/ditance_vs_transmean_Uni.png") 
+maketheplot(aa2= aa1, "~/Documents/GitHub/mobiair/ditance_vs_transmean_Uni_2school.png")
 summary(lm(age_lb~Rvm+Sted, data =a1 ))
 summary(lm(KAf_mean~Rvm+Maat, data =a ))
 
@@ -91,7 +91,7 @@ install.packages("ggpubr")
 library("ggpubr")
 ggboxplot(work, x = "Rvm", y = "age_lb",
           palette = c("#00AFBB", "#E7B800"))+theme(axis.text.x = element_text(angle = 90))
- 
+
 ggboxplot(uni, x = "Rvm", y = "KAf_mean",
           palette = c("#00AFBB", "#E7B800"))+theme(axis.text.x = element_text(angle = 90))
 
@@ -114,7 +114,7 @@ ggboxplot(halftime, x = "Rvm", y = "KAf_mean",
 
 ggboxplot(work, x = "MaatsPart", y = "KAf_mean",
           palette = c("#00AFBB", "#E7B800"))+theme(axis.text.x = element_text(angle = 90))
- 
+
 #Generate distribution of travel distance to work according to social occupationalStatus, then based on this we can choose work locations
 socialpartition = unique(a$MaatsPart)
 i = 1
@@ -143,14 +143,14 @@ dfss["log(distance)"] = (log(ss2)-1)
 names(dfss)[1]= "distance"
 dfss = melt(dfss)
 
-ggplot(dfss, aes(x=value)) + 
+ggplot(dfss, aes(x=value)) +
   geom_histogram(color="black",aes(y = stat(count) / sum(count)), fill="white", bins = 30)+geom_density(alpha=.2, fill="lightblue") +facet_grid(variable~.)+
   ylab("frequency")+xlab("distance to school")+theme_bw()+
   theme(
-    panel.border = element_blank(), # frame or not 
+    panel.border = element_blank(), # frame or not
     strip.background = element_rect(
       color="#FFFFFF", fill="#FFFFFF", size=0.5, linetype = NULL),
-    
+
     strip.text.y = element_text(
       size = 12, color = "black", face = "bold"
     ),
@@ -169,11 +169,11 @@ getmean_sd (student)
 
 mu1 [i] = mu
 sd1[i] = sd
-# 
+#
 
 t1 = rnorm(1000, mean = 20, sd = 1)
 tlog = log (t1)
-t2 = rlnorm(1000, meanlog = mean(tlog), sdlog= sd(tlog)) 
+t2 = rlnorm(1000, meanlog = mean(tlog), sdlog= sd(tlog))
 
 hist(t1)
 hist(t2)
@@ -181,7 +181,7 @@ mean(t1)
 mean(t2)
 sd(t1)
 sd(t2)
-              #exp(mean(t1) + 0.5*(sd(t1)^2)) 
+              #exp(mean(t1) + 0.5*(sd(t1)^2))
 hist(t1)
 hist(exp(t2))
 
@@ -196,4 +196,3 @@ hist(a%>%filter(Doel == "Werken" & MaatsPart==socialpartition[1])%>%select(KAf_m
    #apply(2, function(x){x+1})
 exp(log(10))
  dlnorm(x, meanlog = 0, sdlog = 1, log = FALSE)
- 
