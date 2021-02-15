@@ -23,16 +23,21 @@ import rasterio
 import rasterio.mask 
 import geopandas as gpd
  
-filedir = '/data/lu01/mobi/mobiair'
+filedir = '/data/projects/mobiair'
 ras_rootdir = '/data/gghdc/gap/2021/output/areas/'
-  
+
+
+import osmnx as ox
+wuhan = ox.geocode_to_gdf('武汉, China')
+utrecht = ox.geocode_to_gdf('Utrecht') 
+ 
 #os.getcwd()
 
 # if we just do random sampling in space-time. We have a quite high R2. 
 # But it is because if the Location 1 t1 is in the training, then the L1 t2 is going to be small. So it is not a reliable accuracy assessment. 
 # Most importantly, for the location we want to predict, we dont know the entire time series.
 spreadurl = 'https://raw.githubusercontent.com/mengluchu/mobiair/master/mapping_data/DENL17_hr_spread.csv'
-res = 100 
+res = 25
 ap = pd.read_csv(spreadurl)
 
 #if for only 100m 
@@ -166,7 +171,9 @@ def crop_2array(ras_dir, X_train,maskpoly=None, savename = None):
                 rcrs = src.crs
                 out_meta = src.meta
                 if maskpoly is not None:
+                   # maskpoly=maskpoly.set_crs("EPSG:4326")
                     maskpoly = maskpoly.to_crs (rcrs) 
+                    
                     out_image, out_transform = rasterio.mask.mask(src, maskpoly['geometry'], crop=True)
                     out_image = out_image.squeeze()
                     
@@ -204,12 +211,21 @@ def predicthourly(hr, out_meta, ap, Ut_ras, rastername):
 
 #Utrecht = get_province(filedir, ras_dir, "Utrecht") # project later
 
-for j in range(3):
-    rastername = str(os.listdir(ras_rootdir)[j])
-    ras_dir = ras_rootdir+ rastername
+citypoly = [utrecht, wuhan]
+ 
+for j in ['106682', '111152']:
+  #  rastername = str(os.listdir(ras_rootdir)[j])
+    
+    if j=="106682":
+        cityp = citypoly[0]
+        rastername = "Utrecht"
+    elif j=="111152":
+        cityp = citypoly[1]
+        rastername= "Wuhan"
+    ras_dir = ras_rootdir+ j
     
     X_train, Y_train, X_test, Y_test = preprocessing(ap, 1, False, True , 1 ) # only for getting the names
-    Ut_ras, out_meta = crop_2array(ras_dir, X_train) # get all the rasters
+    Ut_ras, out_meta = crop_2array(ras_dir, X_train, maskpoly = cityp) # get all the rasters
     
     
      

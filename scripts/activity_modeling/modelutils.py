@@ -23,6 +23,8 @@ import shapely.speedups
 from shapely.ops import nearest_points 
 import networkx as nx
 import osmnx as ox
+import pyproj
+from shapely.ops import transform
 
 
 
@@ -308,46 +310,6 @@ def queryroute_df(id, df, routedir = "routes", cls ='bicycle', writegpkg = True,
            return(dis, dur)
  
 
-def generate_stu_eve (id, df, routedir="routes_real", mode4dis=None, save_csv = True, time_interval=0.01):
-  
-  dis, duration= queryroute_df(id, df, routedir, cls = "bicycle", writegpkg = False) 
-  if type(mode4dis) is str: 
-  #netherlands, default -- the parameters will be calculated from survey data. 
-      cls_ = travelmean_from_distance2work(dis, param=mode4dis)
-  else: 
-      cls_ = travelmean_from_distance2work_df(mode4dis, dis)
- 
-  dis, duration  = queryroute_df(id, df, routedir,  cls = cls_)  
-  
-  name= "Stu_Eve"+str(id)
-  h2w_mean= 9 # mean time left to work
-  w2h_mean = 17
-  
-  h2w_sd = 1
-  w2h_sd = 1
-  print("distrance:",dis,"duration(min):",int(duration/60)) 
-  home2work_start = np.random.normal(h2w_mean,  h2w_sd,  1)[0] 
-  work2home_start = np.random.normal(w2h_mean,  w2h_sd, 1 )[0]
-  home2work_end = home2work_start+ duration/3600
-  work2home_end = work2home_start + duration/3600 # meaning at home again
-    
-  work_start = home2work_end+time_interval
-  work_end=work2home_start-time_interval
-  outdoor_evening = work2home_end+1.5
-  outdoor_morning = home2work_start-1.5
-
-  start_time = np.round(np.array([0.0, home2work_start, work_start, work2home_start, work2home_end, outdoor_evening, outdoor_evening+1]),2)
-     
-  end_time = np.round(np.array([*start_time[  1: len(start_time)]-time_interval, 23.9]),2)
-  
-  activity = ["home", "h2w_"+cls_, "work", "w2h_"+cls_,"home", "outdoor", "home"]
-  data = [start_time,end_time,activity]               
-   
-  schedule = pd.DataFrame(data=data).T
-  schedule = schedule.rename (columns = {0:"start_time", 1: "end_time", 2:"activity"})
-  if save_csv:
-      schedule.to_csv(filedir+"/act_schedule/"+ name+"p.csv")
-  return schedule
 
 #separating route model and scheduel model 
 #wo means work and sports, for one person. input travel duration (time in seconds)
@@ -373,11 +335,22 @@ def schedule_general_wo (duration, filedir, name = "work_sport", save_csv = True
      
   end_time = np.round(np.array([*start_time[  1: len(start_time)]-time_interval, 23.9]),2)
   
-  activity = ["home", "h2w", "work", "w2h","home", "sports", "home"]
-  data = [start_time,end_time,activity]               
+  activity = ["home", "h2w", "work", "w2h","home", "free_time", "home"]
+   
+  freetime = np.random.choice([1,4,5,6]) #free time has 4 modes, at home, to sports, 2000m buffer around home, random walk around home
+
+  activity_code = [1 , 2 , 3 , 2, 1, freetime, 1]
+  # activity_code: 1:home, 2: work, 3, h2w or w2h, 
+    #4, h2sport
+  #5, 2000m buffer around home (the person can be anywhere around home), 
+  #6, random walk around home  
+  
+#  activity_type_code = [1, 2, 1, 2, 1, freetime_type, 1]
+  # activity_type_code: 1: point, 2: route, 3: buffer, 4: randomwalk 
+  data = [start_time,end_time,activity, activity_code]               
    
   schedule = pd.DataFrame(data=data).T
-  schedule = schedule.rename (columns = {0:"start_time", 1: "end_time", 2:"activity"})
+  schedule = schedule.rename (columns = {0:"start_time", 1: "end_time", 2:"activity", 3:"activity_code"})
   if save_csv:
       schedule.to_csv(f'{filedir}/{name}.csv')
   return schedule
@@ -430,7 +403,7 @@ def getroute(id, df, f_d, Gw, Gb, Gd, speed_walk = 5, speed_bike = 15):
     if apprEucl <0.001: #less than 1 m, jitter 100 m 
         end = (end[0], end[1]+0.001) 
     cls_ = travelmean_from_distance2work_df( f_d,apprEucl*1000)
-    print(apprEucl, cls_)
+    print(apprEucl,  cls_)
     if cls_ == "train":     
         cls_ = "car"
     
@@ -445,18 +418,24 @@ def getroute(id, df, f_d, Gw, Gb, Gd, speed_walk = 5, speed_bike = 15):
         speed =100 # for train
     start_node = ox.get_nearest_node(G, start,"haversine")
     end_node = ox.get_nearest_node(G, end , "haversine")
-    #start_node ==end_node
+    
+    if start_node ==end_node:
+       travel_distance = 0 
+       travel_time = 0
+       route_ = Point(start)
     # Calculate the shortest path
     # nx and ox are the same: route1 = nx.shortest_path(G, start_node, end_node, weight='travel_time')
-    travel_distance = nx.shortest_path_length(G, start_node,end_node, weight='length')
+   
     #traveldistance is calculated using the route of min length. so not exactly the same as travel time.
-    if cls_ == "car":
-        travel_time = nx.shortest_path_length(G, start_node,end_node, weight='travel_time')
-        route = ox.distance.shortest_path(G, start_node, end_node, weight='travel_time')
     else:
-        travel_time = travel_distance /1000/ speed*3600 
-        route = ox.distance.shortest_path(G, start_node, end_node, weight='length')
-    route_ = nodes_to_linestring(route,G) #Method defined above
+        travel_distance = nx.shortest_path_length(G, start_node,end_node, weight='length')
+        if cls_ == "car":
+            travel_time = nx.shortest_path_length(G, start_node,end_node, weight='travel_time')
+            route = ox.distance.shortest_path(G, start_node, end_node, weight='travel_time')
+        else:
+            travel_time = travel_distance /1000/ speed*3600 
+            route = ox.distance.shortest_path(G, start_node, end_node, weight='length')
+        route_ = nodes_to_linestring(route,G) #Method defined above
     
     return (route_, travel_time, travel_distance,cls_)
    
@@ -467,3 +446,10 @@ def roundlist (list_, n=2):
 def makefolder (dir_):
     if not os.path.exists(dir_):
                    os.mkdir(dir_)
+                   
+def wgs2laea (p):
+    wgs84 = pyproj.CRS('EPSG:4326')
+    rd= pyproj.CRS('+proj=laea +lat_0=51 +lon_0=9.5 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs')
+    project = pyproj.Transformer.from_crs(wgs84, rd, always_xy=True)
+    p=transform(project.transform, p)
+    return (p)                 

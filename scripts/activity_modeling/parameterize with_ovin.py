@@ -73,6 +73,7 @@ def gen_lnorm(df, method="manual"):
  
  
 #based on social occupation and travel goal, output work, outdoor, shopping distances 
+# this is only for getting distance distributions, so not separating between middle school and universities: does travel distance differ between age groups?
 def distance(socialpartition="Scholier/student"):
     if socialpartition == "Scholier/student":# only consider eductation for students
         work_dist = Ovin.query('Doel == "Onderwijs/cursus volgen" & MaatsPart=="{}"'.format(socialpartition))[['KAf_mean']]

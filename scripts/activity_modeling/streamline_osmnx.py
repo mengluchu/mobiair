@@ -28,9 +28,12 @@ from osgeo import ogr, osr
 #apprEucl =ox.distance.euclidean_dist_vec(*qget(1, df)) # if not using Euclidean distance 
 filedir = "/Users/menglu/Documents/GitHub/mobiair/"
 savedir = "/Volumes/Meng_Mac/mobi_result/Uni/" # each profile a savedir. 
-Gw= ox.io.load_graphml(filepath=f'{filedir}graph/ut10kwalk.graphml')
-Gb= ox.io.load_graphml(filepath=f'{filedir}graph/ut10bike.graphml') # note: add speed only works for freeflow travel speeds, osm highway speed
-Gd= ox.io.load_graphml(filepath=f'{filedir}graph/ut10drive.graphml')
+savedir2 = "/Volumes/Meng_Mac/mobi_result/Uni_real/" # esavedir2 for comparison. 
+
+
+Gw= ox.io.load_graphml(filepath=f'{filedir}osmnx_graph/ut10kwalk.graphml')
+Gb= ox.io.load_graphml(filepath=f'{filedir}osmnx_graph/ut10bike.graphml') # note: add speed only works for freeflow travel speeds, osm highway speed
+Gd= ox.io.load_graphml(filepath=f'{filedir}osmnx_graph/ut10drive.graphml')
 
 home_csv = filedir+"locationdata/Uhomelatlon.csv"
 homedf =pd.read_csv(home_csv)
@@ -51,17 +54,26 @@ nr_locations
 
 ite = 1 # first iteration 
 #homedf.shape[0]
-savedir2 = "/Volumes/Meng_Mac/mobi_result/Uni_real/" # each profile a savedir. 
 #Uni_ut_home, Uni, n= nr_locations, dist_var=Ovin, des_type = "work",sopa = "Scholier/student", age_from = 18, age_to=99 ,csvname= f'{savedir}genloc/h2w_{ite}'
 #real_od: no simulation, origin and destination provided, as a dataframe, home_lon, home_lat, work_lon, work_lat  
 
-def generate_activity(real_od, ori=None, des=None, n=10, dist_var=None, des_type=None, sopa=None, age_from=None, age_to=None, Gw, Gb, Gd, f_d, savedir):
+def generate_activity(Gw, Gb, Gd, f_d, savedir, real_od =None, ori=None, des=None, n=10, dist_var=None, des_type=None, sopa=None, age_from=None, age_to=None):
+
+    m.makefolder(f"{savedir}genloc") # make folder only if the dir doesnt exist. 
+    m.makefolder(f"{savedir}genroute")
+    m.makefolder(f"{savedir}genroute_act2")
+    m.makefolder(f"{savedir}genloc_act2")
+    m.makefolder(f"{savedir}gensche")
+        
     csvname= f'{savedir}genloc/h2w_{ite}'
-    if real_od = None:     
+    
+    if real_od is None:     
         df = m.storedf(homedf = ori, goal = des,  dist_var=dist_var, des_type= des_type, sopa =sopa, 
                    age_from = age_from, age_to=age_to, n = n,  csvname= csvname) # for Ovin
     else:
         df = real_od
+    if savedir is not None: 
+        df.to_csv(f'{savedir2}genloc/h2w_real')
         
     allroutes= []
     alltravel_time= []
@@ -79,7 +91,7 @@ def generate_activity(real_od, ori=None, des=None, n=10, dist_var=None, des_type
         alltravel_distance.append(travel_distance)    
      
      
-    d = {'duration_s': roundlist(alltravel_time), 'distance_m': roundlist(alltravel_distance), 'travel_mean': alltravel_mean, 'geometry': allroutes}     
+    d = {'duration_s': m.roundlist(alltravel_time), 'distance_m': m.roundlist(alltravel_distance), 'travel_mean': alltravel_mean, 'geometry': allroutes}     
     gpd1= gpd.GeoDataFrame(d, crs={'init': 'epsg:4326'}) 
     gpd1.to_file(f'{savedir}genroute/route_{ite}.gpkg')
     
@@ -88,10 +100,10 @@ generate_activity(ori = Uni_ut_home, des = Uni, n= nr_locations,
                   age_from = 18, age_to=99, Gw= Gw, Gb= Gb, Gd= Gd,  f_d = f_d, 
                   savedir = savedir)  
  
-generate_activity(ori = Uni_ut_home, des = Uni, n= nr_locations, 
-                  dist_var=Ovin, des_type = "work",sopa = "Scholier/student", 
-                  age_from = 18, age_to=99, Gw= Gw, Gb= Gb, Gd= Gd,  f_d = f_d, 
-                  savedir = savedir2)  
+generate_activity(real_od = Uni_ut_homework,n= nr_locations, Gw= Gw, Gb= Gb, Gd= Gd, f_d = f_d,savedir = savedir2)  
+imp.reload(m) 
+#Point(start).distance(Point(end))*110 
+
  
 ''' alternative ways of saving routes
 import fiona
@@ -145,23 +157,15 @@ with open(filedir+'route.json', 'w') as json_file:
 
 #same: np.array(route1)-np.array(route)
 #Plot the route and street networks
-fig, ax = ox.plot_graph_route(Gb, route, route_linewidth=6, node_size=0, bgcolor='k' )
-fig.savefig("route.png")
+
+#fig, ax = ox.plot_graph_route(Gb, route, route_linewidth=6, node_size=0, bgcolor='k' )
+#fig.savefig("route.png")
 
 
-for j in range(2,5):
-    df = pd.read_csv(f'{filedir}/genloc/ut_Uni{j}.csv')
-    #df = pd.read_csv(filedir+"/locationdata/Uni_Ut_homework.csv")
-    for id in range(df.shape[0]):   
-        schedule = generate_stu_eve(id, df, f'route_{j}', f_d ,save_csv=True)
-        print(id)
-        print(schedule)   
-        
-
-ox.config(use_cache=True, log_console=True)
+#ox.config(use_cache=True, log_console=True)
 
 #import random
-filedir = "/data/projects/mobiair"
+#filedir = "/data/projects/mobiair"
 #home_csv = filedir+"/locationdata/Uhomelatlon.csv"
 #work_csv = filedir+"/locationdata/Uworklatlon.csv"  #working locations of each homeID. Will later group by homeID for sampling
 #homedf = pd.read_csv( home_csv) 
@@ -169,24 +173,3 @@ filedir = "/data/projects/mobiair"
 #nr_locations = homedf.shape[0]
 
 #f_d = pd.read_csv( "/Users/menglu/Documents/GitHub/mobiair/distprob/example_fulltime.csv")        
-
-f_d = pd.read_csv( "/data/projects/mobiair/distprob/example_uni_stu.csv")        
-r = Routing(server='127.0.0.1', port_car=55001, port_bicycle=55002, port_foot=55003, port_train=55004)
- 
-time_interval = 0.01
-#n = 1 #seed
-#set.seed(n)
-
-
-name = "Stu_Eve_o_tm"+str(id)  # o_tm means ovin travelmode
- 
-for j in range(2,5):
-    df = pd.read_csv(f'{filedir}/genloc/ut_Uni{j}.csv')
-    #df = pd.read_csv(filedir+"/locationdata/Uni_Ut_homework.csv")
-    for id in range(df.shape[0]):   
-        schedule = m.generate_stu_eve(id, df, f'route_{j}', f_d ,save_csv=True)
-        print(id)
-        print(schedule)   
-
-#with open('/data/lu01/aamyfile.geojson', 'w') as f:
-#    drump(route,f)
