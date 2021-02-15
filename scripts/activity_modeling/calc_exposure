@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Feb 15 17:21:40 2021
+
+@author: menglu
+"""
+import pandas as pd 
+import geopandas as gpd
+import numpy as np
+import os
+from rasterstats import zonal_stats, point_query
+import pyproj
+from shapely.ops import transform
+import modelutils as m
+import rasterio
+from matplotlib import pyplot as plt
+from rasterio.plot import show_hist
+
+                   
+def wgs2laea (p):
+    wgs84 = pyproj.CRS('EPSG:4326')
+    rd= pyproj.CRS('+proj=laea +lat_0=51 +lon_0=9.5 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs')
+    project = pyproj.Transformer.from_crs(wgs84, rd, always_xy=True)
+    p=transform(project.transform, p)
+    return (p)  
+src = rasterio.open(f'{preddir}{ls[2]}')
+plt.imshow(src.read(1), cmap='pink')
+show_hist(src, bins=50, histtype='stepfilled', lw=0.0, stacked=False, alpha=0.3)
+#plt.show()
+filedir = "/Users/menglu/Documents/GitHub/mobiair/"
+preddir =f"{filedir}prediction/"
+
+savedir = "/Volumes/Meng_Mac/mobi_result/Uni/" # each profile a savedir. 
+
+ls = os.listdir(preddir)
+Uni_ut_homework = pd.read_csv(filedir +"locationdata/Uni_Ut_homework.csv") # for comparison 
+routedir = savedir+'genroute/'
+routefile = os.listdir(routedir)[0]
+
+schedir = savedir+'gensche/'
+#schefile = os.listdir(schedir)
+
+route= gpd.read_file(routedir+routefile)
+route = route.to_crs('+proj=laea +lat_0=51 +lon_0=9.5 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs')
+i = 20
+ext = 300 # 300 m 
+
+
+def buffermean(p, ext , rasterfile):
+   
+    pbuf=p.buffer(ext)
+    z= zonal_stats(pbuf, rasterfile, stats = 'mean')[0]['mean']
+    return z  
+
+def gethw (df):
+    ph=Point(df.home_lon , df.home_lat )
+    ph = wgs2laea(ph)
+    pw=Point(df.work_lon , df.work_lat )
+    pw = wgs2laea(pw)
+    return(ph, pw)
+
+def getcon(act_num, rasterfile, df, routegeom):
+    ph, pw = gethw(df)
+    return {
+       1: point_query(ph, rasterfile ), #home
+       2: np.mean(point_query(routegeom, rasterfile)),# can easily make buffer out of it as well, here the ap already 100m so not needed.
+       3: point_query(pw, rasterfile ),
+       4: buffermean(p, ext, rasterfile), # will change into to sport (second route)
+       5: buffermean(p, ext, rasterfile),
+       6: buffermean(p, ext, rasterfile) # will change into random walk 
+       } [act_num]                                              
+ 
+sched = pd.read_csv(f'{schedir}ws_iter_1_id_{i}.csv')
+start =np.floor(sched['start_time'])
+end = np.ceil(sched['end_time'])
+act_num = sched['activity_code']
+
+i=1
+getcon(act_num[i], f'{preddir}{ls[i]}', Uni_ut_homework.loc[i], route.loc[i]['geometry'])
+ 
+  ras = paste0 (rasterpath, "NL100_t",start[act_num]:end[act_num], ".tif")
+  st= stack(ras) # this takes quite sometime
+  #meanap = calc(st, mean)
+  exp = unlist( raster::extract(st, loc))
+  mean(exp)* (sched$end_time - sched$start_time)[act_num]
+
+
+.buffer(1)
+
+np.floor(0.11)
+np.ceil(0.1)
