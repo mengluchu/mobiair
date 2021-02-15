@@ -78,7 +78,9 @@ end = np.ceil(sched['end_time']).astype(int)
 act_num = sched['activity_code']
 # rasterfile = f'{preddir}NL100_t{i}.tif'
 
- 
+def remove_none(nparray): 
+    arr = np.array(nparray)
+    return(arr[arr!= np.array( None)])
 '''  
 #test
 for i in range(1,7):
@@ -95,10 +97,10 @@ for j in range(len(Uni_ut_homework)):
     for k in range(sched.shape[0]): # iterate over schedule
         for i in range(start[k],end[k]): # iterate over raster
             con_each_act.append(getcon(act_num[k], f'{preddir}NL100_t{i}.tif', Uni_ut_homework.loc[j], route.loc[j]['geometry']))
-            
-        con_each_person.append(np.nanmean(con_each_act[k*i : k*(1+i) ]))
+          
+        con_each_person.append(np.nanmean(remove_none(con_each_act[k*i : (k+1)*i ]) ))
     print(j)   
-    con_all.append(np.nanmean(con_each_act[j*k:(j+1)*k]))
+    con_all.append(np.nanmean(remove_none(con_each_act[j*k:(j+1)*k])))
     
 
 con_each_person
