@@ -284,7 +284,7 @@ def crop_2array(ras_dir, X_train, polygon=Utrecht, savename = None):
         np.save(savename, Ut_ras)  
     return (Ut_ras, out_meta)
 
-def plot_predictor ()
+def plot_predictor (Ut_ras)
     fig, axs = plt.subplots(nrows=8, ncols=7, figsize=(55,15),
                             subplot_kw={'xticks': [], 'yticks': []})
     for i, ax in enumerate(axs.flat):

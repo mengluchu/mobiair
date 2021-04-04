@@ -139,7 +139,7 @@ def getdestloc (p, w_gdf, u, goal = "work", sopa = "Scholier/student"):
         des_p = workloc.iloc[0]["geometry"]  
     return (p, des_p,num_points)
 
-def storedf(homedf, w_gdf, u, n=50, csvname = "U17_h2s"):    
+def genODdf(homedf, w_gdf, u, n=50, csvname = "U17_h2s"):    
     totalarray = [0,0,0,0,0]
     for id in range (n): 
         h =homedf.loc[id]
@@ -181,17 +181,17 @@ workdf = pd.read_csv( work_csv)  #for randomly sample working locations
 
    
 w_gdf, u  = pot_dest(Uni)            
-storedf(homedf, w_gdf, u, n= 50, csvname= f'{filedir}/genloc/h2Uni')
+genODdf(homedf, w_gdf, u, n= 50, csvname= f'{filedir}/genloc/h2Uni')
 
 w_gdf, u  = pot_dest(workdf) 
-storedf(homedf, w_gdf, u, n= 50, csvname=   f'{filedir}/genloc/h2w')
+genODdf(homedf, w_gdf, u, n= 50, csvname=   f'{filedir}/genloc/h2w')
 
 w_gdf, u  = pot_dest(sports)            
-storedf(homedf, w_gdf, u, n= 50, csvname=  f'{filedir}/genloc/h2sp')
+genODdf(homedf, w_gdf, u, n= 50, csvname=  f'{filedir}/genloc/h2sp')
 
 
 w_gdf, u  = pot_dest(Uni)            
-storedf(Uni_ut_home, w_gdf, u, n= Uni_ut_home.shape[0], csvname= f'{filedir}/genloc/ut_Uni4')
+genODdf(Uni_ut_home, w_gdf, u, n= Uni_ut_home.shape[0], csvname= f'{filedir}/genloc/ut_Uni4')
 
 # save to df
  

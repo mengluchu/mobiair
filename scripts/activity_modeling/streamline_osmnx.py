@@ -35,17 +35,19 @@ Gw= ox.io.load_graphml(filepath=f'{filedir}osmnx_graph/ut10kwalk.graphml')
 Gb= ox.io.load_graphml(filepath=f'{filedir}osmnx_graph/ut10bike.graphml') # note: add speed only works for freeflow travel speeds, osm highway speed
 Gd= ox.io.load_graphml(filepath=f'{filedir}osmnx_graph/ut10drive.graphml')
 
-home_csv = filedir+"locationdata/Uhomelatlon.csv"
+home_csv = f'{filedir}locationdata/Uhomelatlon.csv"
 homedf =pd.read_csv(home_csv)
-Ovin = pd.read_csv(filedir+'human_data/dutch_activity/Ovin.csv')
+Ovin = pd.read_csv(f'{filedir}human_data/dutch_activity/Ovin.csv')
 
-#University students 
-Uni= gpd.read_file(filedir+'locationdata/Ut_Uni_coll.gpkg')
+#University students eductation locations 
+Uni= gpd.read_file(filedir+'locationdata/Ut_Uni_coll.gpkg') 
+
 # travel probability for university students
 f_d = pd.read_csv( f"{filedir}/distprob/example_uni_stu.csv")  
+
 #generate destination locations
 
-Uni_ut_home = pd.read_csv(filedir +"locationdata/Uni_Ut_home.csv") #location with known Uni. 
+Uni_ut_home = pd.read_csv(filedir +"locationdata/Uni_Ut_home.csv") # home locations for generating activities. (with known Uni) 
 Uni_ut_homework = pd.read_csv(filedir +"locationdata/Uni_Ut_homework.csv") # for comparison 
 
 nr_locations = Uni_ut_home.shape[0]
@@ -67,9 +69,10 @@ def generate_activity(Gw, Gb, Gd, f_d, savedir, real_od =None, ori=None, des=Non
         
     csvname= f'{savedir}genloc/h2w_{ite}'
     
+    #1. generate OD locations
     if real_od is None:     
-        df = m.storedf(homedf = ori, goal = des,  dist_var=dist_var, des_type= des_type, sopa =sopa, 
-                   age_from = age_from, age_to=age_to, n = n,  csvname= csvname) # for Ovin
+        df = m.genODdf(homedf = ori, goal = des,  dist_var=dist_var, des_type= des_type, sopa =sopa, 
+                   age_from = age_from, age_to=age_to, n = n,  csvname= csvname) 
     else:
         df = real_od
     if savedir is not None: 
@@ -79,27 +82,30 @@ def generate_activity(Gw, Gb, Gd, f_d, savedir, real_od =None, ori=None, des=Non
     alltravel_time= []
     alltravel_distance= []
     alltravel_mean = []
-     
+    
+    #2. generate activity schedules  
     for id in range(n):
      
         route, travel_time, travel_distance, travel_mean = m.getroute(id, Gw=Gw, Gb=Gb, Gd=Gd, df=df, f_d=f_d)       
         m.schedule_general_wo(travel_time, savedir+"gensche", name = f"ws_iter_{ite}_id_{id}") #ws: work and sport
-        
+        # generated activities and save the tables 
         allroutes.append(route)
         alltravel_time.append(travel_time)
         alltravel_mean.append(travel_mean)
         alltravel_distance.append(travel_distance)    
      
-     
+    #3. generate OD routes.  
     d = {'duration_s': m.roundlist(alltravel_time), 'distance_m': m.roundlist(alltravel_distance), 'travel_mean': alltravel_mean, 'geometry': allroutes}     
     gpd1= gpd.GeoDataFrame(d, crs={'init': 'epsg:4326'}) 
     gpd1.to_file(f'{savedir}genroute/route_{ite}.gpkg')
-    
+
+# generated activities and get the routes
 generate_activity(ori = Uni_ut_home, des = Uni, n= nr_locations, 
                   dist_var=Ovin, des_type = "work",sopa = "Scholier/student", 
                   age_from = 18, age_to=99, Gw= Gw, Gb= Gb, Gd= Gd,  f_d = f_d, 
                   savedir = savedir)  
- 
+
+ # generated activiites using real work locaitons 
 generate_activity(real_od = Uni_ut_homework,n= nr_locations, Gw= Gw, Gb= Gb, Gd= Gd, f_d = f_d,savedir = savedir2)  
 imp.reload(m) 
 #Point(start).distance(Point(end))*110 
